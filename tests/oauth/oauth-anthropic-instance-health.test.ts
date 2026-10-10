@@ -93,3 +93,25 @@ test("a failed usage reread still leaves the reset account eligible", async () =
   expect(projectStoredOAuthAccountHealth("anthropic", account, Date.now(), { observeOnly: true }).status).toBe("healthy");
   expect(getCachedProviderAccountQuota("anthropic", id)?.weeklyPercent).not.toBe(100);
 });
+
+test("a five-hour-only reset lifts the account cooldown without releasing a model family", async () => {
+  const { admitAnthropicAccountAfterReset } = await import("../../src/providers/anthropic-reset-admission");
+  const { projectStoredOAuthAccountHealth } = await import("../../src/oauth/health");
+  const now = Date.now();
+  const id = f.ids[0];
+  const headers = new Headers({
+    "anthropic-ratelimit-unified-7d-status": "rejected",
+    "anthropic-ratelimit-unified-7d-reset": String(Math.floor((now + 86_400_000) / 1000)),
+  });
+  f.routing.anthropicRoutingFor("anthropic").recordAnthropicAccount429(f.config, id, "86400", now, headers);
+  f.modelQuota.anthropicModelQuotaFor("anthropic").observeAnthropicFamilyQuota(id, [{
+    label: "Fable", scope: "model", percent: 100, rejected: true, resetAt: now + 86_400_000,
+  }], now, true);
+  globalThis.fetch = (async () => Response.json({
+    five_hour: { utilization: 0, resets_at: new Date(now + 3_600_000).toISOString() },
+  })) as typeof fetch;
+  await admitAnthropicAccountAfterReset("anthropic", id);
+  const account = f.store.getAccountSet("anthropic")!.accounts.find(row => row.id === id)!;
+  expect(projectStoredOAuthAccountHealth("anthropic", account, Date.now(), { observeOnly: true }).status).toBe("healthy");
+  expect(f.modelQuota.anthropicFamilyRejected(id, "claude-fable-5", Date.now())).toBe(true);
+});

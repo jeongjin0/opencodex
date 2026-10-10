@@ -591,6 +591,7 @@ export default function Providers({ apiBase }: { apiBase: string }) {
     onAccountThreshold: setAccountThreshold,
     onRemoveAccount: removeAccount,
     onRetryAccounts: async provider => { await fetchAccountSets([provider]); },
+    onAccountAdmitted: async provider => { await refreshAccountRosters({ provider, kind: "oauth" }); },
     onAddApiKey: addApiKeyValue,
     onSwitchApiKey: switchApiKey,
     onRemoveApiKey: removeApiKey,
