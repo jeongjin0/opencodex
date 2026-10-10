@@ -673,6 +673,7 @@ export default function ProviderAuthPanel({
                 entry={claudeGrants.entries[grantAccount.id]}
                 controller={claudeGrants}
                 onClose={() => setGrantAccount(null)}
+                onAdmitted={() => { void authHandlers.onRetryAccounts?.(item.name); }}
               />
             )}
             {accountLoadState === "ready" && loggedIn && accounts.length === 0 && (

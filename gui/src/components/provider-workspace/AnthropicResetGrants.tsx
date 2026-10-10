@@ -165,12 +165,14 @@ function outcomeOf(result: AnthropicSpendOutcome): Outcome {
  */
 const RELEASES_HELD = new Set(["unknown_outcome_expired", "operation_identity_mismatch"]);
 
-export function AnthropicResetGrantModal({ accountId, accountLabel, entry, controller, onClose }: {
+export function AnthropicResetGrantModal({ accountId, accountLabel, entry, controller, onClose, onAdmitted }: {
   accountId: string;
   accountLabel: string;
   entry: AnthropicGrantEntry | undefined;
   controller: AnthropicResetGrantController;
   onClose: () => void;
+  /** Fired after a journaled reset so the roster can drop the stale cooldown row. */
+  onAdmitted?: (accountId: string) => void;
 }) {
   const { locale, t } = useI18n();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -231,6 +233,7 @@ export function AnthropicResetGrantModal({ accountId, accountLabel, entry, contr
     setHeld(null);
     setOutcome(outcomeOf(result));
     if (result.kind === "refused") void controller.refresh(accountId);
+    if (result.kind === "settled" && result.code === "reset") onAdmitted?.(accountId);
   };
 
   const recheck = async () => {

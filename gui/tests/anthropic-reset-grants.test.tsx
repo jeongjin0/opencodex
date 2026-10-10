@@ -86,6 +86,7 @@ test("switching pools rejects stale equal-ID reset reads and sends the selected 
 });
 
 beforeEach(() => {
+  admittedAccounts.length = 0;
   testWindow = new Window({ url: "http://localhost/" });
   const keys = ["document", "window", "localStorage", "IS_REACT_ACT_ENVIRONMENT"] as const;
   const previous = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
@@ -117,6 +118,8 @@ async function tick(): Promise<void> {
   });
 }
 
+const admittedAccounts: string[] = [];
+
 function Harness() {
   const t = useT();
   const controller = useAnthropicResetGrants({ apiBase: "", accountIds: ["acct-1"], enabled: true });
@@ -126,7 +129,7 @@ function Harness() {
       <AnthropicGrantBadge entry={controller.entries["acct-1"]} t={t} onClick={() => setOpen(true)} />
       {open && (
         <AnthropicResetGrantModal accountId="acct-1" accountLabel="acct-1" entry={controller.entries["acct-1"]}
-          controller={controller} onClose={() => setOpen(false)} />
+          controller={controller} onClose={() => setOpen(false)} onAdmitted={id => { admittedAccounts.push(id); }} />
       )}
     </>
   );
@@ -189,6 +192,7 @@ test("the badge counts unspent resets and the dialog retries an unknown outcome 
   expect(posts[0]).toMatchObject({ accountId: "acct-1", grantId: "opus55-launch-promax-20260921" });
   expect(String(posts[0].operationId)).toMatch(/^[0-9a-f-]{36}$/);
   expect(container.textContent).toContain("Limits reset. 0 reset(s) left.");
+  expect(admittedAccounts).toEqual(["acct-1"]);
 
   await act(async () => { root.unmount(); });
 });
@@ -210,6 +214,7 @@ test("a pending attempt held by the server is resumed instead of starting a new 
   expect(container.querySelector("[data-anthropic-grant-use]")).toBeNull();
   await click(container, "[data-anthropic-grant-retry]");
   expect(posts).toEqual([{ accountId: "acct-1", grantId: SNAPSHOT.grants[0].id, operationId: pendingId }]);
+  expect(admittedAccounts).toEqual([]);
   await act(async () => { root.unmount(); });
 });
 
@@ -248,6 +253,7 @@ test("a replayed refusal reads as that refusal, not as a success", async () => {
   await click(container, "[data-anthropic-grant-use]");
   await click(container, "[data-anthropic-grant-confirm]");
   expect(container.textContent).toContain("Too many requests. Nothing was used");
+  expect(admittedAccounts).toEqual([]);
   expect(container.textContent).not.toContain("already settled earlier");
   expect(container.querySelector(".pws-status-warn")).not.toBeNull();
   await act(async () => { root.unmount(); });
